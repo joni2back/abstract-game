@@ -1,139 +1,139 @@
-/**
- * @author Jonas Sciangula Street <joni2back@gmail.com>
- */
+(function(window, Date) {
 
-Math.fromto = function (from, to) {
-    return Math.floor(Math.random() * to) + from;
-};
+    var AbstractGame = function() {
+        this.canvas = null;
+        this.ctx = null;
 
-Image.create =  function(src) {
-    var img = new Image();
-    img.src = src;
-    return img;
-};
+        this.drawing = {
+            intervalId: 0,
+            fps: 60,
+            now: undefined,
+            then: Date.now(),
+            delta: undefined
+        };
 
-var Player = function(image, x, y, width, height) {
-    this.image = Image.create(image);
-    this.width = width || 128;
-    this.height = height || 128;
-    this.x = x || 0;
-    this.y = y || 0;
-    this.velocity = 5;
-    this.alive = true;
-    this.direction = 0;
-};
-
-Player.prototype.parseKeys = function(keyPressed) {
-    if (keyPressed === 39) {
-        this.x = this.x + this.velocity;
+        this.keys = [];
+        this.ball = new Ball;
     }
-    if (keyPressed === 37) {
-        this.x = this.x -this.velocity;
-    }
-    if (keyPressed === 38) {
-        this.y = this.y -this.velocity;
-    }
-    if (keyPressed === 40) {
-        this.y = this.y + this.velocity;
-    }
-    if (keyPressed === 32) {
-        this.y = this.y - (this.velocity * 2);
-    }
-};
 
-var AbstractGame = function() {
-    this.fps = 60;
-    this.canvas = null;
-    this.width = 0;
-    this.height = 0;
-    this.minVelocity = 60;
-    this.maxVelocity = 150;
-    this.intervalId = 0;
-    this.background = '#000';
-    this.audio = 'click.wav';
-    this.player = null;
-};
+    AbstractGame.prototype.init = function(div) {
+        var setSizes = function () {
+            this.width = window.innerWidth;
+            this.height = window.innerHeight;
+            this.canvas.width = this.width;
+            this.canvas.height = this.height;
+        }.bind(this);
 
-AbstractGame.prototype.parseKeys = function (keyPressed) {
+        this.canvas = document.createElement('canvas');
+        setSizes.apply(this);
+        div.appendChild(this.canvas);
 
-};
+        window.onresize = setSizes.bind(this);
 
-AbstractGame.prototype.init = function (div) {
-    var self = this;
+        window.document.body.addEventListener("keydown", function (e) {
+            this.keys[e.keyCode] = true;
+        }.bind(this));
 
-    this.containerDiv = div;
-    self.width = window.innerWidth;
-    self.height = window.innerHeight;
+        window.document.body.addEventListener("keyup", function (e) {
+            this.keys[e.keyCode] = false;
+        }.bind(this));
 
-    window.onresize = function (event) {
-        self.width = window.innerWidth;
-        self.height = window.innerHeight;
-        self.canvas.width = self.width;
-        self.canvas.height = self.height;
-        self.draw();
+        window.document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        }, false);
     };
 
-    //Create the canvas.
-    var canvas = document.createElement('canvas');
-    div.appendChild(canvas);
-    this.canvas = canvas;
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
+    AbstractGame.prototype.start = function() {
+        this.draw();
+    };
 
-    canvas.addEventListener('mousemove', function (e) {
-        xMouse = (typeof e.offsetX == 'undefined') ? e.layerX : e.offsetX;
-        yMouse = (typeof e.offsetY == 'undefined') ? e.layerY : e.offsetY;
-        self.player.x = xMouse;
-        self.player.y = yMouse;
-    }, false);
+    AbstractGame.prototype.pause = function() {
+        window.cancelAnimationFrame(this.drawing.intervalId);
+    };
 
-    document.addEventListener("contextmenu", function(e) {
-        e.preventDefault();
-    }, false);
-    
-    document.addEventListener("keydown", function (e) {
-        var key = e.which || e.keyCode;
-        self.player.parseKeys(key);
-        console.log(key);
-    }, true);
-};
+    AbstractGame.prototype.parseKeys = function(event) {
+        var left = 37, right = 39, up = 38, down = 40;
+        var increase = 5;
 
-AbstractGame.prototype.start = function () {
-    var xCenter = this.canvas.width / 2;
-    var yCenter = this.canvas.height / 2;
-    this.player = new Player('player.gif', xCenter, yCenter);
-    this.run();
-};
+        if (this.keys[left]) {
+            this.ball.x -= increase;
+        }
+        if (this.keys[right]) {
+            this.ball.x += increase;
+        }
+        if (this.keys[up]) {
+            this.ball.y -= increase;
+        }
+        if (this.keys[down]) {
+            this.ball.y += increase;
+        }
+    };
 
-AbstractGame.prototype.pause = function () {
-    clearInterval(this.intervalId);
-};
+    AbstractGame.prototype.draw = function() {
+        var drw = this.drawing;
+        var interval = 1000 / drw.fps;
 
-AbstractGame.prototype.run = function () {
-    var self = this;
-    this.intervalId = setInterval(function () {
-        self.draw();
-    }, 1000 / this.fps);
-};
+        drw.intervalId = window.requestAnimationFrame(this.draw.bind(this));
+        drw.now = Date.now();
+        drw.delta = drw.now - drw.then;
+        if (drw.delta > interval) {
+            drw.then = drw.now - (drw.delta % interval);
+            this.update();
+        }
+    };
+
+    AbstractGame.prototype.clearCanvas = function() {
+        var ctx = this.canvas.getContext("2d");
+
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, this.width, this.height);
+    };
+
+    AbstractGame.prototype.update = function() {
+        var ctx = this.canvas.getContext("2d");
+
+        this.parseKeys();
+        this.clearCanvas();
+        this.ball.draw(ctx);
+
+        (function(ctx) {
+            return;
+            var speed = 0.003;
+            var time = new Date().getTime() * speed;
+            var x = Math.sin(time) * 192 + 256;
+            var y = Math.cos(time * 0.9) * 192 + 256;
+            
+            ctx.fillStyle = '#444';
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.fill();
+        })(ctx);
+    };
 
 
-AbstractGame.prototype.draw = function () {
-    var ctx = this.canvas.getContext("2d");
+    var Ball = function(x, y) {
+        this.radius = 15;
+        this.x = x || 0;
+        this.y = y || 0;
+    }
 
-    //Draw the background.
-    ctx.fillStyle = this.background;
-    ctx.fillRect(0, 0, this.width, this.height);
+    Ball.prototype.draw = function(ctx) {
+        ctx.fillStyle = 'black';
+        ctx.beginPath();
+        ctx.arc(
+            this.x,
+            this.y,
+            this.radius,
+            0,
+            Math.PI*2,
+            false
+        );
+ 
+        ctx.closePath();
+        ctx.fill();
+    };
 
-    var self = this;
-    self.drawPlayer(self.player, ctx);
-};
+    window.AbstractGame = AbstractGame;
 
-AbstractGame.prototype.drawPlayer = function (Player, ctx) {
-    ctx.drawImage(Player.image, Player.x, Player.y, Player.width, Player.height);
-    ctx.moveTo(Player.y, Player.x);
-};
-
-
-AbstractGame.prototype.touch = function (x, y) {
-    var self = this;
-};
+})(window, Date);
